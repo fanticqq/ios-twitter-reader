@@ -1,11 +1,3 @@
-//
-//  AppDelegate.swift
-//  twitterReader
-//
-//  Created by Admin on 19.07.16.
-//  Copyright © 2016 Igor. All rights reserved.
-//
-
 import UIKit
 import CoreData
 
@@ -13,10 +5,24 @@ import CoreData
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    var navController: UINavigationController?
 
 
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
-        // Override point for customization after application launch.
+        window = UIWindow(frame: UIScreen.mainScreen().bounds)
+        if window != nil {
+            navController = UINavigationController()
+            let viewController = ViewController()
+            navController!.pushViewController(viewController, animated: false)
+            
+            self.window = UIWindow(frame: UIScreen.mainScreen().bounds)
+            
+            self.window!.rootViewController = navController
+            
+            self.window!.backgroundColor = UIColor.whiteColor()
+            
+            self.window!.makeKeyAndVisible()
+        }
         return true
     }
 
