@@ -2,15 +2,15 @@ import Foundation
 
 class TwitterRequestController: NSObject {
 
-    typealias onTokenResultListener = (response:[String:AnyObject]?, error:NSError?) -> Void
-    typealias onTimelineResultListener = (response:[Tweet]?, error:NSError?) -> Void
+    typealias OnTokenResultListener = (response:[String:AnyObject]?, error:NSError?) -> Void
+    typealias OnTimelineResultListener = (response:[Tweet]?, error:NSError?) -> Void
 
     private static let API_ROOT_URL: String = "https://api.twitter.com/"
 
     //Auth
     private static let API_AUTH_URL: String = API_ROOT_URL + "oauth2/token"
 
-    private static let API_TIMELINE_URL: String = API_ROOT_URL + "1.1/statuses/user_timeline.json?screen_name=twitterapi&count=20"
+    private static let API_TIMELINE_URL: String = API_ROOT_URL + "1.1/statuses/user_timeline.json?screen_name=fanticqq"
 
     func obtainBearerToken(requestTokenCallback: (String?) -> Void) {
         let token = PreferencesManager.readBearerToken()
@@ -35,18 +35,30 @@ class TwitterRequestController: NSObject {
         }
     }
 
-    private func generateRandomUserIdsSequence() -> String {
-        var randomIds: [String] = []
-        for i in 0 ..< 10 {
-            randomIds.append(String(Int(arc4random_uniform(10000 - 6000) + 6000) + i))
-        }
-
-        return randomIds.joinWithSeparator(",")
+    func pullTimeline(token: String, count: Int, maxId: Int, listener: OnTimelineResultListener) {
+        requestTimeline(token, count: count, maxId: maxId, minId: 0, listener: listener)
     }
 
-    internal func requestTimeline(token: String, listener: onTimelineResultListener) {
-//        let randomIds = generateRandomUserIdsSequence()
-        let url = TwitterRequestController.API_TIMELINE_URL// + randomIds
+    func pullTimeline(token: String, minId: Int, listener: OnTimelineResultListener) {
+        requestTimeline(token, count: minId != 0 ? 0 : 20, maxId: 0, minId: minId, listener: listener)
+    }
+
+    func pullTimeline(token: String, count: Int, listener: OnTimelineResultListener) {
+        requestTimeline(token, count: count, maxId: 0, minId: 0, listener: listener)
+    }
+
+    private func requestTimeline(token: String, count: Int, maxId: Int, minId: Int, listener: OnTimelineResultListener) {
+        print("requestTimeline")
+        var url = TwitterRequestController.API_TIMELINE_URL
+        if (count > 0) {
+            url += "&count=\(count)"
+        }
+        if (maxId != 0) {
+            url += "&max_id=\(maxId)"
+        }
+        if (minId != 0) {
+            url += "&since_id=\(minId)"
+        }
         let request = NSMutableURLRequest(URL: NSURL(string: url)!)
 
         request.HTTPMethod = MethodType.GET.description
@@ -89,7 +101,7 @@ class TwitterRequestController: NSObject {
         task.resume()
     }
 
-    private func requestBearerToken(callback: onTokenResultListener) {
+    private func requestBearerToken(callback: OnTokenResultListener) {
 
         let request = NSMutableURLRequest(URL: NSURL(string: TwitterRequestController.API_AUTH_URL)!)
 

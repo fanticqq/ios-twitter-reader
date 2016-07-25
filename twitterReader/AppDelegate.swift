@@ -12,7 +12,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.mainScreen().bounds)
         if window != nil {
             navController = UINavigationController()
-            let viewController = AuthorizationViewController()
+            let viewController = TableViewController()
             navController!.pushViewController(viewController, animated: false)
             
             let screen = UIScreen.mainScreen().bounds
