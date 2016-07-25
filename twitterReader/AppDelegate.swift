@@ -12,14 +12,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.mainScreen().bounds)
         if window != nil {
             navController = UINavigationController()
-            let viewController = ViewController()
+            let viewController = AuthorizationViewController()
             navController!.pushViewController(viewController, animated: false)
             
-            self.window = UIWindow(frame: UIScreen.mainScreen().bounds)
+            let screen = UIScreen.mainScreen().bounds
+            self.window?.frame = CGRectMake(0, 0, screen.width, screen.height)
             
             self.window!.rootViewController = navController
             
-            self.window!.backgroundColor = UIColor.whiteColor()
+//            self.window!.backgroundColor = UIColor.whiteColor()
             
             self.window!.makeKeyAndVisible()
         }
