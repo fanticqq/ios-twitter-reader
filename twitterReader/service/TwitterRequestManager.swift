@@ -1,6 +1,6 @@
 import Foundation
 
-class TwitterRequestController: NSObject {
+class TwitterRequestManager: NSObject {
 
     typealias OnTokenResultListener = (response:[String:AnyObject]?, error:NSError?) -> Void
     typealias OnTimelineResultListener = (response:[Tweet]?, error:NSError?) -> Void
@@ -10,7 +10,7 @@ class TwitterRequestController: NSObject {
     //Auth
     private static let API_AUTH_URL: String = API_ROOT_URL + "oauth2/token"
 
-    private static let API_TIMELINE_URL: String = API_ROOT_URL + "1.1/statuses/user_timeline.json?screen_name=fanticqq"
+    private static let API_TIMELINE_URL: String = API_ROOT_URL + "1.1/statuses/user_timeline.json?screen_name=twitterapi"
 
     func obtainBearerToken(requestTokenCallback: (String?) -> Void) {
         let token = PreferencesManager.readBearerToken()
@@ -40,7 +40,7 @@ class TwitterRequestController: NSObject {
     }
 
     func pullTimeline(token: String, minId: Int, listener: OnTimelineResultListener) {
-        requestTimeline(token, count: minId != 0 ? 0 : 20, maxId: 0, minId: minId, listener: listener)
+        requestTimeline(token, count: 0, maxId: 0, minId: minId, listener: listener)
     }
 
     func pullTimeline(token: String, count: Int, listener: OnTimelineResultListener) {
@@ -49,7 +49,7 @@ class TwitterRequestController: NSObject {
 
     private func requestTimeline(token: String, count: Int, maxId: Int, minId: Int, listener: OnTimelineResultListener) {
         print("requestTimeline")
-        var url = TwitterRequestController.API_TIMELINE_URL
+        var url = TwitterRequestManager.API_TIMELINE_URL
         if (count > 0) {
             url += "&count=\(count)"
         }
@@ -85,13 +85,9 @@ class TwitterRequestController: NSObject {
             do {
                 let json = try NSJSONSerialization.JSONObjectWithData(data!, options: [])
                 let result = json as! [[String:AnyObject]]
-                print(json)
                 var response: [Tweet] = []
                 for dict in result {
-                    for (k, v) in dict {
-                        print("\(k) = \(v)")
-                    }
-                    response.append(Tweet.initFromJSON(dict))
+                    response.append(Tweet.createFromJSON(dict))
                 }
                 listener(response: response, error: nil)
             } catch let error as NSError {
@@ -103,12 +99,12 @@ class TwitterRequestController: NSObject {
 
     private func requestBearerToken(callback: OnTokenResultListener) {
 
-        let request = NSMutableURLRequest(URL: NSURL(string: TwitterRequestController.API_AUTH_URL)!)
+        let request = NSMutableURLRequest(URL: NSURL(string: TwitterRequestManager.API_AUTH_URL)!)
 
         request.HTTPMethod = MethodType.POST.description
         request.setValue("api.twitter.com", forHTTPHeaderField: "Host")
         request.setValue("application/x-www-form-urlencoded;charset=UTF-8", forHTTPHeaderField: "Content-Type")
-        request.setValue("Basic \(encodeKeys())", forHTTPHeaderField: "Authorization")
+        request.setValue("Basic \(BuildVars.encodeKeys())", forHTTPHeaderField: "Authorization")
         request.setValue("Twitter IOS Test Application", forHTTPHeaderField: "User-Agent")
         request.setValue("29", forHTTPHeaderField: "Content-Length")
         request.setValue("gzip", forHTTPHeaderField: "Accept-Encoding")
@@ -138,9 +134,5 @@ class TwitterRequestController: NSObject {
             }
         }
         task.resume()
-    }
-
-    private func encodeKeys() -> String {
-        return Utils.base64("\(BuildVars.ApiKey):\(BuildVars.ApiSecret)")
     }
 }

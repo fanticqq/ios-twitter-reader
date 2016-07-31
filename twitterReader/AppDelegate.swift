@@ -17,10 +17,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             
             let screen = UIScreen.mainScreen().bounds
             self.window?.frame = CGRectMake(0, 0, screen.width, screen.height)
-            
             self.window!.rootViewController = navController
-            
-//            self.window!.backgroundColor = UIColor.whiteColor()
+            ImageLoadingManager.sharedInstance.initialize()
             
             self.window!.makeKeyAndVisible()
         }
