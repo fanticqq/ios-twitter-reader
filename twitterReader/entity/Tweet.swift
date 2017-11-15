@@ -1,29 +1,15 @@
 import Foundation
 import UIKit
+import RealmSwift
 
-final class Tweet {
+class Tweet: Object {
 
-    class Entity {
-        static let ENTITY_NAME = "Tweet"
-        static let ID = "tweet_id"
-        static let TEXT = "text"
-        static let SCREEN_NAME = "screen_name"
-        static let PROFILE_IMAGE_URL = "profile_image_url"
-    }
-
-    var id: Int = 0
-    var text: String
-    var screenName: String
-    var profileImageUrl: URL?
+    @objc var id: Int = 0
+    @objc var text: String = ""
+    @objc var screenName: String = ""
+    @objc var profileImageUrl: String?
     
-    init(id: Int, text: String, screenName: String, profileImageUrl: URL?) {
-        self.id = id
-        self.text = text
-        self.screenName = screenName
-        self.profileImageUrl = profileImageUrl
-    }
-    
-    init?(json: [String:AnyObject]) {
+    class func create(with json: [String:AnyObject]) -> Tweet? {
         guard let id = json["id"] as? Int,
             let text = json["text"] as? String,
             let userJSON = json["user"] as? [String:AnyObject],
@@ -31,9 +17,11 @@ final class Tweet {
             let url = userJSON["profile_image_url_https"] as? String else {
                 return nil
         }
-        self.id = id
-        self.text = text
-        self.screenName = userName
-        self.profileImageUrl = URL(string: url)
+        let tweet = Tweet()
+        tweet.id = id
+        tweet.text = text
+        tweet.screenName = userName
+        tweet.profileImageUrl = url
+        return tweet
     }
 }

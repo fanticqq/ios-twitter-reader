@@ -37,12 +37,12 @@ class TweetCell: UITableViewCell {
             if let tweet = tweet {
                 self.tweetTextLabel.text = tweet.text
                 self.nameLabel.text = "@" + tweet.screenName
-                if let url = tweet.profileImageUrl {
+                if let urlString = tweet.profileImageUrl,
+                    let url = URL(string: urlString) {
                     self.avatarImageVIew.setImage(from: url)
                 } else {
                     self.avatarImageVIew.image = nil
                 }
-                setNeedsLayout()
             }
         }
     }
