@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-class Tweet {
+final class Tweet {
 
     class Entity {
         static let ENTITY_NAME = "Tweet"
@@ -12,17 +12,28 @@ class Tweet {
     }
 
     var id: Int = 0
-    var text: String?
-    var screenName: String?
-    var profileImageUrl: String?
-
-
-    class func createFromJSON(json: [String:AnyObject]) -> Tweet {
-        let tweet: Tweet = Tweet()
-        tweet.id = json["id"] as! Int
-        tweet.text = json["text"] as? String
-        tweet.screenName = json["user"]!["screen_name"] as? String
-        tweet.profileImageUrl = json["user"]!["profile_image_url_https"] as? String
-        return tweet
+    var text: String
+    var screenName: String
+    var profileImageUrl: URL?
+    
+    init(id: Int, text: String, screenName: String, profileImageUrl: URL?) {
+        self.id = id
+        self.text = text
+        self.screenName = screenName
+        self.profileImageUrl = profileImageUrl
+    }
+    
+    init?(json: [String:AnyObject]) {
+        guard let id = json["id"] as? Int,
+            let text = json["text"] as? String,
+            let userJSON = json["user"] as? [String:AnyObject],
+            let userName = userJSON["screen_name"] as? String,
+            let url = userJSON["profile_image_url_https"] as? String else {
+                return nil
+        }
+        self.id = id
+        self.text = text
+        self.screenName = userName
+        self.profileImageUrl = URL(string: url)
     }
 }

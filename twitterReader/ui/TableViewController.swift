@@ -1,189 +1,90 @@
 import UIKit
 import CoreData
+import RxSwift
 
 class TableViewController: UITableViewController {
-
-    var requestController: TwitterRequestManager?
+    
+    var requestController: TwitterController!
     var tweets: [Tweet] = []
-    var loading = false
-
+    
+    var bag = DisposeBag()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         self.title = "Feed"
-
-        requestController = TwitterRequestManager()
+        
+        requestController = TwitterController()
         tweets = DataManager.loadTweets()
-        tweets.sortInPlace({$0.id > $1.id})
-        requestController?.obtainBearerToken() {
-            token in
-            print("request timeline for token= \(token)")
-            self.loading = true
-            self.requestController?.pullTimeline(token!, count: 20) {
-                response, error in
-                self.loading = false
-                guard error == nil else {
-                    print("error getting user timeline: \(error)")
-                    return
-                }
-                if self.tweets.isEmpty {
-                    self.tweets = response!
-                    self.tableView.reloadData()
-                    DataManager.saveTweets(self.tweets)
-                }
-                for tweet in self.tweets {
-                    print("tweet id = \(tweet.id) text = \(tweet.text)")
-                }
-            }
-        }
-        initializeCell()
-
-        refreshControl = createRefreshView()
-        tableView.addSubview(refreshControl!)
-
-        tableView.tableHeaderView = createTableHeader()
-
-        tableView.tableFooterView?.hidden = true
-        showHeaderIfNeeded()
+        tweets.sort(by: {$0.id > $1.id})
+        requestController.obtainBearerToken()
+            .subscribeOn(MainScheduler())
+            .subscribe(onNext: { [unowned self] token in
+                self.requestController.pullTimeline(token: token, count: 20)
+                    .observeOn(MainScheduler())
+                    .subscribe(onNext: { tweets in
+                        if self.tweets.isEmpty {
+                            self.tweets = tweets
+                            self.tableView.reloadData()
+                        }
+                    }).disposed(by: self.bag)
+            }).disposed(by: self.bag)
+        self.tableView.register(TweetCell.self, forCellReuseIdentifier: String(describing: TweetCell.self))
+        self.refreshControl = self.createRefreshView()
     }
-
-    override func scrollViewDidScroll(scrollView: UIScrollView) {
+    
+    override func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let currentOffsetY = scrollView.contentOffset.y
         let maxOffsetY = scrollView.contentSize.height - scrollView.frame.size.height
-        if maxOffsetY - currentOffsetY <= 0 {
+        if maxOffsetY - currentOffsetY <= 200 {
             loadMore()
         }
     }
-
-    func showHeaderIfNeeded() -> Bool {
-        if let header = tableView.tableHeaderView {
-            guard Utils.isConnected() else {
-                header.hidden = false
-                return true
-            }
-            if !header.hidden {
-                header.hidden = true
-            }
-        }
-        return false
-    }
-
-    func refresh() {
-        if (showHeaderIfNeeded()) {
-            return
-        }
-        if (!loading) {
-            self.loading = true
-            let token = PreferencesManager.readBearerToken();
-            if tweets.isEmpty {
-                self.requestController?.pullTimeline(token!, count: 20) {
-                    response, error in
-                    self.displayNewTweets(error, response: response)
-                }
-            } else {
-                self.requestController?.pullTimeline(token!, minId: tweets[0].id) {
-                    response, error in
-                    self.displayNewTweets(error, response: response)
-                }
-            }
-        }
-    }
-
-    func displayNewTweets(error: NSError?, response: [Tweet]?) {
-        dispatch_async(dispatch_get_main_queue(), {
-            () -> Void in
-            self.loading = false
-            self.refreshControl?.endRefreshing()
-            guard error == nil else {
-                print("error getting user timeline: \(error)")
-                return
-            }
-            if let tweets = response {
-                if !tweets.isEmpty {
-                    self.tweets = tweets + self.tweets
+    
+    @objc func refresh() {
+        if let token = PreferencesManager.readBearerToken() {
+            self.requestController.pullTimeline(token: token, count: 20)
+                .observeOn(MainScheduler())
+                .subscribe(onNext: { [unowned self] (tweets) in
+                    self.tweets = tweets
                     self.tableView.reloadData()
-                    DataManager.saveTweets(tweets)
-                }
-            }
-        })
+                }).disposed(by: self.bag)
+        }
     }
-
+    
     func loadMore() {
-        if (showHeaderIfNeeded()) {
+        guard !self.tweets.isEmpty else {
             return
         }
-        if (!loading) {
-            loading = true
-            let token = PreferencesManager.readBearerToken()
-            if token != nil {
-                self.requestController?.pullTimeline(token!, count: 20, maxId: tweets[tweets.count - 1].id - 1) {
-                    response, error in
-                    dispatch_async(dispatch_get_main_queue(), {
-                        () -> Void in
-                        self.loading = false
-                        self.refreshControl?.endRefreshing()
-                        guard error == nil else {
-                            print("error getting user timeline: \(error)")
-                            return
-                        }
-                        if let tweets = response {
-                            self.tweets += tweets
-                            self.tableView.reloadData()
-                            DataManager.saveTweets(tweets)
-                        }
-                    })
-                }
-            }
+        if let token = PreferencesManager.readBearerToken() {
+            self.requestController.pullTimeline(token: token, count: 20, maxId: tweets[tweets.count - 1].id - 1)
+                .observeOn(MainScheduler())
+                .subscribe(onNext: { [unowned self] (tweets) in
+                    self.refreshControl?.endRefreshing()
+                    let indices = tweets.enumerated().map { IndexPath(row: $0.offset + self.tweets.endIndex, section: 0) }
+                    self.tweets.append(contentsOf: tweets)
+                    self.tableView.insertRows(at: indices, with: .automatic)
+                }).disposed(by: self.bag)
         }
     }
-
-    func createTableHeader() -> UIView {
-        let view = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: 40))
-        view.backgroundColor = UIColor.redColor()
-        view.layer.opacity = 0.8
-
-        let label = UILabel(frame: CGRect(x: 0, y: 0, width: view.frame.width, height: view.frame.height))
-        label.text = "No internet connection"
-        label.textColor = UIColor.whiteColor()
-        label.textAlignment = .Center
-
-        view.addSubview(label)
-
-        return view
-    }
-
+    
     func createRefreshView() -> UIRefreshControl {
-        let refreshControl = UIRefreshControl(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: 60))
+        let refreshControl = UIRefreshControl()
         refreshControl.attributedTitle = NSAttributedString(string: "Loading...")
-        refreshControl.addTarget(self, action: #selector(refresh), forControlEvents: UIControlEvents.ValueChanged)
+        refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
         return refreshControl
     }
-
-    func initializeCell() {
-        let bundle = NSBundle(forClass: self.dynamicType)
-        let cellNib = UINib(nibName: "TweetCell", bundle: bundle)
-        tableView.registerNib(cellNib, forCellReuseIdentifier: "Cell")
-        tableView.allowsSelection = false
-        tableView.allowsMultipleSelection = false
-        tableView.separatorStyle = UITableViewCellSeparatorStyle.SingleLine
-        tableView.separatorColor = UIColor.grayColor()
-    }
-
-    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return tweets.count
     }
-
-    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("Cell", forIndexPath: indexPath) as! TweetCell
+    
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: TweetCell.self), for: indexPath) as! TweetCell
         cell.tweet = tweets[indexPath.row]
         return cell
     }
-
-    override func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+    
+    override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 60
-    }
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
 }

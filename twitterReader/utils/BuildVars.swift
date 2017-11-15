@@ -5,6 +5,6 @@ class BuildVars {
     static let ApiSecret : String = "Z8j4xiqxjwp4368psyaWHUoxqZjzeb6sVyBiKN1Ix3CS06nYYt"
     
     class func encodeKeys() -> String {
-        return Utils.base64("\(ApiKey):\(ApiSecret)")
+        return "\(ApiKey):\(ApiSecret)".toBase64()
     }
 }
