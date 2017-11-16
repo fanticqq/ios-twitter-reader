@@ -1,5 +1,35 @@
 import UIKit
 
+struct TweetCellViewModel {
+    
+    let userName: String
+    let text: String
+    let profileImageURL: URL?
+    
+    func configure(cell: TweetCell) {
+        cell.tweetTextLabel.text = self.text
+        cell.nameLabel.text = "@" + self.userName
+        if let url = self.profileImageURL {
+            cell.avatarImageVIew.setImage(from: url)
+        } else {
+            cell.avatarImageVIew.image = nil
+        }
+    }
+}
+
+extension TweetCellViewModel {
+    
+    init(tweet: Tweet) {
+        self.userName = tweet.screenName
+        self.text = tweet.text
+        if let urlString = tweet.profileImageUrl {
+            self.profileImageURL = URL(string: urlString)
+        } else {
+            self.profileImageURL = nil
+        }
+    }
+}
+
 class TweetCell: UITableViewCell {
 
     lazy var nameLabel: UILabel = {
@@ -30,21 +60,6 @@ class TweetCell: UITableViewCell {
     override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         initialSetup()
-    }
-
-    var tweet: Tweet? {
-        didSet {
-            if let tweet = tweet {
-                self.tweetTextLabel.text = tweet.text
-                self.nameLabel.text = "@" + tweet.screenName
-                if let urlString = tweet.profileImageUrl,
-                    let url = URL(string: urlString) {
-                    self.avatarImageVIew.setImage(from: url)
-                } else {
-                    self.avatarImageVIew.image = nil
-                }
-            }
-        }
     }
     
     override func updateConstraints() {

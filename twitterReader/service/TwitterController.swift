@@ -1,6 +1,7 @@
 import Foundation
 
 import RxSwift
+import RealmSwift
 
 class TwitterController {
 
@@ -15,7 +16,7 @@ class TwitterController {
     private var token: String?
     private var loading = false
 
-    func obtainBearerToken() -> Observable<String> {
+    func obtainTokenIfNeeded() -> Observable<String> {
         if let token = self.token {
             return Observable.just(token)
         } else if let token = UserDefaults.standard.string(forKey: TwitterController.FIELD_TOKEN) {
@@ -24,16 +25,29 @@ class TwitterController {
             return self.requestBearerToken()
         }
     }
-
-    func pullTimeline(token: String, maxId: Int) -> Observable<[Tweet]> {
-        return requestTimeline(token: token, maxId: maxId, minId: 0)
+    
+    func dropCache() {
+        RealmController.realmWrite {
+            RealmController.mainRealm.deleteAll()
+        }
+    }
+    
+    func fetchTweets(from identifier: Int? = nil, since: Int? = nil) -> Observable<[Tweet]> {
+        return obtainTokenIfNeeded().flatMap { (token) -> Observable<[Tweet]> in
+            return self.requestTimeline(token: token, maxId: identifier, minId: since)
+        }
+    }
+    
+    func obtainTweetsFromCache() -> Observable<[Tweet]> {
+        if RealmController.mainRealm.isEmpty {
+            return fetchTweets()
+        } else {
+            let tweets: [Tweet] = RealmController.mainRealm.objects(Tweet.self).map { $0 }
+            return Observable.just(tweets)
+        }
     }
 
-    func pullTimeline(token: String) -> Observable<[Tweet]> {
-        return requestTimeline(token: token, maxId: 0, minId: 0)
-    }
-
-    private func requestTimeline(token: String, maxId: Int, minId: Int) -> Observable<[Tweet]> {
+    private func requestTimeline(token: String, maxId: Int?, minId: Int?) -> Observable<[Tweet]> {
         guard !self.loading else {
             return Observable.create { observer in
                 observer.onCompleted()
@@ -41,12 +55,11 @@ class TwitterController {
             }
         }
         self.loading = true
-        var url = TwitterController.API_TIMELINE_URL
-        url += "&count=\(50)"
-        if (maxId != 0) {
+        var url = TwitterController.API_TIMELINE_URL + "&count=\(50)"
+        if let maxId = maxId {
             url += "&max_id=\(maxId)"
         }
-        if (minId != 0) {
+        if let minId = minId {
             url += "&since_id=\(minId)"
         }
         var request = URLRequest(url: URL(string: url)!)
@@ -67,8 +80,12 @@ class TwitterController {
                     observer.onError(error)
                 } else {
                     do {
-                        let result = try JSONSerialization.jsonObject(with: data!, options: []) as? [[String:AnyObject]]
-                        let tweets: [Tweet] = result?.flatMap(Tweet.create) ?? []
+                        let result = try JSONSerialization.jsonObject(with: data!, options: []) as! [[String:AnyObject]]
+                        let realm = try Realm()
+                        let tweets: [Tweet] = result.flatMap { Tweet.create(with:$0,into:realm) }
+                        RealmController.realmWrite(realm: realm) {
+                            realm.add(tweets)
+                        }
                         observer.onNext(tweets)
                     } catch {
                         observer.onError(error)
